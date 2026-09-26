@@ -29,6 +29,10 @@ async def show_stats(callback: CallbackQuery, session: AsyncSession):
     stats = await orm_show_stats_for_admin(session)
     await callback.message.edit_text(f"всі існюючі записи, {stats}", reply_markup=await kb.muplti_kb_inline(text="Назад", callback='admin:menu'))
 
+"""
+Початок регістрації нової послуги
+"""
+
 
 class AddServices(StatesGroup):
     name = State()
@@ -60,6 +64,12 @@ async def price_service(message: Message, state: FSMContext, session: AsyncSessi
     await state.clear()
 
 
+"""
+Кінець регістрації нової послуги
+"""
+
+
+# показує всі існуючі записи клієнтів нажаль без пагінації 
 @admin.callback_query(IsAdmin(), F.data == "services")
 async def get_service(callback: CallbackQuery, session: AsyncSession):
     bookings = await orm_get_avtive_booking(session)
@@ -67,6 +77,7 @@ async def get_service(callback: CallbackQuery, session: AsyncSession):
     await callback.message.edit_text("Виберіть послугу", reply_markup=await kb.build_admin_bookings_keyboard(bookings))
     
 
+# детальніше показує інформацію про запис клієнта на яку дату та час також доступну інформації usera в телеграм
 @admin.callback_query(F.data.startswith("admin_booking"), IsAdmin())
 async def show_booking_details(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     booking_id = int(callback.data.split(':')[1])
@@ -90,6 +101,10 @@ async def show_booking_details(callback: CallbackQuery, session: AsyncSession, b
     await callback.message.edit_text(text, reply_markup=await kb.muplti_kb_inline(text='Назад', callback="services"))
 
 
+"""
+Початок блоку для видалення непотрібних послуг
+"""
+
 @admin.callback_query(F.data == 'delete:sevrice')
 async def delete_service(callback: CallbackQuery, session: AsyncSession):
     names = await get_service_obj(session)
@@ -111,3 +126,8 @@ async def confirm_delete(callback: CallbackQuery, session: AsyncSession):
         await callback.message.edit_text('Ви видалили категорію', reply_markup=await kb.muplti_kb_inline(text="Меню", callback="admin:menu"))
     else:
         await callback.message.edit_text("Не вийшло видалити категорію", reply_markup=await kb.muplti_kb_inline(text="Меню", callback="admin:menu"))
+
+
+"""
+Кінець блоку для видалення непотрібних послуг
+"""

@@ -15,7 +15,7 @@ from database.orm_queries import get_available_days, get_working_hours, create_b
 
 user = Router()
 
-PAGE_SIZE = 5
+PAGE_SIZE = 5  
 
 @user.message(CommandStart())
 async def start(mesage: Message):
@@ -29,7 +29,12 @@ async def start_menu(callback: CallbackQuery, session: AsyncSession):
 
     await callback.message.edit_text('Це бот для запису/бронювання місця на послуги, нижче виберіть що вам потрібно👇', reply_markup=await kb.start_kb(is_admin))
 
+""""
+Початок блоку для резервування дати та часу на послугу
+"""
 
+
+# показує доступні послуги
 @user.callback_query(F.data =='book:service')
 async def service(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     await state.clear()
@@ -38,6 +43,7 @@ async def service(callback: CallbackQuery, session: AsyncSession, state: FSMCont
     await callback.message.edit_text('Виберіть послугу', reply_markup=await kb.build_services_keyboard(services=services))
 
 
+# генерує інлайнову клавіатуру з доступними днями для запису
 @user.callback_query(F.data.startswith('service:'))
 async def show_days(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     service_id = int(callback.data.split(':')[1])
@@ -55,6 +61,7 @@ async def show_days(callback: CallbackQuery, session: AsyncSession, state: FSMCo
     )
 
 
+# генерує інлайнову клавіатуру з доступним часом для запису
 @user.callback_query(F.data.startswith('day:'))
 async def show_time_slots(callback: CallbackQuery, session: AsyncSession):
     day_str = callback.data.split(":")[1]
@@ -80,6 +87,7 @@ async def show_time_slots(callback: CallbackQuery, session: AsyncSession):
     )
 
 
+# проміжне меню для підтвердженя сапису
 @user.callback_query(F.data.startswith('time:'))
 async def confirm_booking(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     _, day_str, time_str = callback.data.split(':', 2)  # split(':', 2) — фікс бага з часом
@@ -102,6 +110,7 @@ async def confirm_booking(callback: CallbackQuery, session: AsyncSession, state:
     )
 
 
+# ця частина перевіряє чи є вільне місце для запису на послугу якщо немає показує плашку на жадь зайнято і ви дальше вибиражте новий час
 @user.callback_query(F.data == 'confirm:booking')
 async def accept(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     data = await state.get_data()
@@ -114,7 +123,7 @@ async def accept(callback: CallbackQuery, session: AsyncSession, state: FSMConte
     slot_time = datetime.strptime(time_str, '%H:%M').time() 
 
     
-    booking = await create_booking(session, callback.from_user.id, service_id, selected_day, slot_time)
+    booking = await create_booking(session, callback.from_user.id, service_id, selected_day, slot_time) #перевіряє чи на даний час і жату вже запис
     
     if booking is None:
         await callback.answer("На жаль, цей час вже зайнято 😔", show_alert=True)
@@ -122,7 +131,14 @@ async def accept(callback: CallbackQuery, session: AsyncSession, state: FSMConte
 
     await callback.message.edit_text("Запис успішно створений", reply_markup=await kb.muplti_kb_inline(text="Меню", callback="start:menu"))
 
+""""
+Кінець блоку резервування
+"""
 
+
+"""
+Початок блоку для відміни своїх записів 
+"""
 @user.callback_query(F.data == 'my:services')
 async def my_bookings(callback: CallbackQuery, session: AsyncSession):
     await render_bookings_page(callback, session, page=1)
@@ -141,12 +157,12 @@ async def cancel_booking_handler(callback: CallbackQuery, session: AsyncSession)
     await callback.answer("Запис скасовано ✅" if ok else "Не вдалося скасувати", show_alert=not ok)
     await render_bookings_page(callback, session, page=1)
 
+"""
+Кінець блоку для скасування своїх записів
+"""
 
-@user.callback_query(F.data == 'noop')
-async def noop(callback: CallbackQuery):
-    await callback.answer()
 
-
+# будує клавіатуру в вашими доступними послугами з пагінацією 
 async def render_bookings_page(callback: CallbackQuery, session: AsyncSession, page: int):
     bookings, total = await get_user_booking(session, callback.from_user.id, page, PAGE_SIZE)
 
